@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CSV Upload & Date Validation</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+      }
+
+      .container {
+        background-color: white;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      h1 {
+        color: #333;
+        text-align: center;
+        margin-bottom: 30px;
+      }
+
+      .upload-section {
+        border: 2px dashed #ccc;
+        border-radius: 10px;
+        padding: 30px;
+        text-align: center;
+        margin-bottom: 20px;
+        background-color: #fafafa;
+      }
+
+      .upload-section.dragover {
+        border-color: #007bff;
+        background-color: #e3f2fd;
+      }
+
+      .file-input {
+        margin: 20px 0;
+      }
+
+      .file-input input[type="file"] {
+        display: none;
+      }
+
+      .file-input label {
+        display: inline-block;
+        padding: 12px 24px;
+        background-color: #007bff;
+        color: white;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+      }
+
+      .file-input label:hover {
+        background-color: #0056b3;
+      }
+
+      .upload-btn {
+        background-color: #28a745;
+        color: white;
+        border: none;
+        padding: 12px 30px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+        margin-top: 10px;
+      }
+
+      .upload-btn:hover {
+        background-color: #218838;
+      }
+
+      .upload-btn:disabled {
+        background-color: #6c757d;
+        cursor: not-allowed;
+      }
+
+      .results {
+        margin-top: 30px;
+      }
+
+      .success {
+        background-color: #d4edda;
+        color: #155724;
+        padding: 15px;
+        border-radius: 5px;
+        border: 1px solid #c3e6cb;
+      }
+
+      .error {
+        background-color: #f8d7da;
+        color: #721c24;
+        padding: 15px;
+        border-radius: 5px;
+        border: 1px solid #f5c6cb;
+      }
+
+      .error-list {
+        list-style-type: none;
+        padding: 0;
+        margin: 10px 0 0 0;
+      }
+
+      .error-item {
+        background-color: white;
+        margin: 5px 0;
+        padding: 10px;
+        border-radius: 3px;
+        border-left: 4px solid #dc3545;
+      }
+
+      .loading {
+        text-align: center;
+        color: #6c757d;
+        font-style: italic;
+      }
+
+      .file-info {
+        margin-top: 10px;
+        padding: 10px;
+        background-color: #e9ecef;
+        border-radius: 5px;
+        text-align: left;
+      }
+
+      .sample-info {
+        background-color: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-radius: 5px;
+        padding: 15px;
+        margin-bottom: 20px;
+      }
+
+      .sample-info h3 {
+        margin-top: 0;
+        color: #856404;
+      }
+
+      .sample-format {
+        font-family: monospace;
+        background-color: #f8f9fa;
+        padding: 10px;
+        border-radius: 3px;
+        margin: 10px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>CSV Upload & Date Validation</h1>
+
+      <div class="sample-info">
+        <h3>📋 Instructions</h3>
+        <p>Upload a CSV file with the following format:</p>
+        <div class="sample-format">
+          Name,DateOfBirth<br />
+          John Doe,1990-05-15<br />
+          Jane Smith,1985-07-20
+        </div>
+        <p><strong>Requirements:</strong></p>
+        <ul>
+          <li>Name must not be empty</li>
+          <li>DateOfBirth must be in yyyy-MM-dd format</li>
+          <li>DateOfBirth must not be empty</li>
+        </ul>
+      </div>
+
+      <div class="upload-section" id="uploadSection">
+        <div class="file-input">
+          <label for="csvFile">📁 Choose CSV File</label>
+          <input type="file" id="csvFile" accept=".csv" />
+        </div>
+        <p>or drag and drop your CSV file here</p>
+        <div id="fileInfo" class="file-info" style="display: none"></div>
+        <button
+          class="upload-btn"
+          id="uploadBtn"
+          onclick="uploadFile()"
+          disabled
+        >
+          Upload & Validate
+        </button>
+      </div>
+
+      <div id="results" class="results"></div>
+    </div>
+
+    <script>
+      const fileInput = document.getElementById("csvFile");
+      const uploadSection = document.getElementById("uploadSection");
+      const uploadBtn = document.getElementById("uploadBtn");
+      const fileInfo = document.getElementById("fileInfo");
+      const results = document.getElementById("results");
+
+      // File input change event
+      fileInput.addEventListener("change", function (e) {
+        handleFileSelect(e.target.files[0]);
+      });
+
+      // Drag and drop events
+      uploadSection.addEventListener("dragover", function (e) {
+        e.preventDefault();
+        uploadSection.classList.add("dragover");
+      });
+
+      uploadSection.addEventListener("dragleave", function (e) {
+        e.preventDefault();
+        uploadSection.classList.remove("dragover");
+      });
+
+      uploadSection.addEventListener("drop", function (e) {
+        e.preventDefault();
+        uploadSection.classList.remove("dragover");
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+          fileInput.files = files;
+          handleFileSelect(files[0]);
+        }
+      });
+
+      function handleFileSelect(file) {
+        if (file) {
+          // Check if file is CSV
+          if (!file.name.toLowerCase().endsWith(".csv")) {
+            showError("Please select a CSV file.");
+            return;
+          }
+
+          fileInfo.innerHTML = `
+                    <strong>Selected file:</strong> ${file.name}<br>
+                    <strong>Size:</strong> ${(file.size / 1024).toFixed(
+                      2
+                    )} KB<br>
+                    <strong>Type:</strong> ${file.type || "text/csv"}
+                `;
+          fileInfo.style.display = "block";
+          uploadBtn.disabled = false;
+          results.innerHTML = "";
+        }
+      }
+
+      async function uploadFile() {
+        const file = fileInput.files[0];
+        if (!file) {
+          showError("Please select a file first.");
+          return;
+        }
+
+        uploadBtn.disabled = true;
+        uploadBtn.textContent = "Validating...";
+
+        results.innerHTML =
+          '<div class="loading">🔄 Validating CSV file...</div>';
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        try {
+          const response = await fetch("/api/validate-csv", {
+            method: "POST",
+            body: formData,
+          });
+
+          const data = await response.json();
+
+          if (data.status === "success") {
+            showSuccess("✅ CSV file validation successful! No errors found.");
+          } else {
+            showErrors(data.errors);
+          }
+        } catch (error) {
+          showError("❌ Error uploading file: " + error.message);
+        } finally {
+          uploadBtn.disabled = false;
+          uploadBtn.textContent = "Upload & Validate";
+        }
+      }
+
+      function showSuccess(message) {
+        results.innerHTML = `<div class="success">${message}</div>`;
+      }
+
+      function showError(message) {
+        results.innerHTML = `<div class="error">${message}</div>`;
+      }
+
+      function showErrors(errors) {
+        let errorHtml = '<div class="error">';
+        errorHtml += `<strong>❌ Validation failed with ${errors.length} error(s):</strong>`;
+        errorHtml += '<ul class="error-list">';
+
+        errors.forEach((error) => {
+          errorHtml += `<li class="error-item">
+                    <strong>Row ${error.row}:</strong> ${error.message}
+                </li>`;
+        });
+
+        errorHtml += "</ul></div>";
+        results.innerHTML = errorHtml;
+      }
+    </script>
+  </body>
+</html>
